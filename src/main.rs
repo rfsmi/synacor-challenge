@@ -3,9 +3,7 @@ mod side_effects;
 
 use instructions::parse;
 use itertools::Itertools;
-use side_effects::{DefaultSideEffects, SideEffects};
-
-const BINARY: &[u8] = include_bytes!("challenge.bin");
+use side_effects::{RealSideEffects, SideEffects};
 
 #[derive(Debug, PartialEq, Eq)]
 struct VM {
@@ -26,23 +24,19 @@ impl VM {
             memory,
         }
     }
-
-    fn step(&mut self, side_effects: &mut dyn SideEffects) {
-        let (instruction, size) = parse(&self.memory, self.pc);
-        self.pc += size;
-        instruction.execute(self, side_effects);
-    }
 }
 
 fn main() {
-    let binary = BINARY
+    let binary = include_bytes!("challenge.bin")
         .iter()
         .tuples()
         .map(|(l, r)| [*l, *r])
         .map(u16::from_le_bytes);
     let mut vm = VM::new(binary);
-    let mut side_effects = DefaultSideEffects::default();
+    let mut side_effects = RealSideEffects::default();
     loop {
-        vm.step(&mut side_effects);
+        let (instruction, size) = parse(&vm.memory, vm.pc);
+        vm.pc += size;
+        instruction.execute(&mut vm, &mut side_effects);
     }
 }

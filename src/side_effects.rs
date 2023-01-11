@@ -10,33 +10,9 @@ pub(crate) trait SideEffects {
 }
 
 #[derive(Default)]
-pub(crate) struct MockSideEffects {
-    pub(crate) halted: bool,
-    pub(crate) printed: Vec<char>,
-    pub(crate) input: Vec<char>,
-}
+pub(crate) struct RealSideEffects {}
 
-impl SideEffects for MockSideEffects {
-    fn print(&mut self, value: u16) {
-        let Some(c) = char::from_u32(value as u32) else {
-            panic!("Value is not an ascii character: {value}");
-        };
-        self.printed.push(c);
-    }
-
-    fn read(&mut self) -> u16 {
-        self.input.remove(0) as u16
-    }
-
-    fn halt(&mut self) {
-        self.halted = true;
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct DefaultSideEffects {}
-
-impl SideEffects for DefaultSideEffects {
+impl SideEffects for RealSideEffects {
     fn print(&mut self, value: u16) {
         let Some(c) = char::from_u32(value as u32) else {
             panic!("Value is not an ascii character: {value}");
@@ -57,5 +33,29 @@ impl SideEffects for DefaultSideEffects {
 
     fn halt(&mut self) {
         exit(0);
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct MockSideEffects {
+    pub(crate) halted: bool,
+    pub(crate) printed: Vec<char>,
+    pub(crate) input: Vec<char>,
+}
+
+impl SideEffects for MockSideEffects {
+    fn print(&mut self, value: u16) {
+        let Some(c) = char::from_u32(value as u32) else {
+            panic!("Value is not an ascii character: {value}");
+        };
+        self.printed.push(c);
+    }
+
+    fn read(&mut self) -> u16 {
+        self.input.remove(0) as u16
+    }
+
+    fn halt(&mut self) {
+        self.halted = true;
     }
 }

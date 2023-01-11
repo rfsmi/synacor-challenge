@@ -296,11 +296,11 @@ impl Instruction for Noop {
     fn execute(&self, _vm: &mut VM, _side_effects: &mut dyn SideEffects) {}
 }
 
+#[cfg(test)]
 mod test {
-    use std::iter::empty;
-
     use super::*;
     use crate::side_effects::MockSideEffects;
+    use std::iter::empty;
 
     #[test]
     fn test_out() {
