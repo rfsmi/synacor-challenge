@@ -300,7 +300,6 @@ impl Instruction for Noop {
 mod test {
     use super::*;
     use crate::side_effects::MockSideEffects;
-    use std::iter::empty;
 
     #[test]
     fn test_out() {
@@ -308,10 +307,10 @@ mod test {
         assert_eq!(size, 2);
         assert_eq!(format!("{instr:?}"), "Out { a: Literal(65) }");
 
-        let mut vm = VM::new(empty());
+        let mut vm = VM::default();
         let mut side_effects = MockSideEffects::default();
         instr.execute(&mut vm, &mut side_effects);
-        assert_eq!(vm, VM::new(empty())); // No effect on vm
+        assert_eq!(vm, VM::default()); // No effect on vm
         assert_eq!(side_effects.printed, vec!['A']);
     }
 }

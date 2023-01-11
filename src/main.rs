@@ -13,26 +13,26 @@ struct VM {
     memory: [u16; 32768],
 }
 
-impl VM {
-    fn new(binary: impl Iterator<Item = u16>) -> Self {
-        let mut memory = [0; 32768];
-        memory.iter_mut().set_from(binary);
+impl Default for VM {
+    fn default() -> Self {
         Self {
             pc: 0,
             registers: [0; 8],
             stack: Vec::new(),
-            memory,
+            memory: [0; 32768],
         }
     }
 }
 
 fn main() {
-    let binary = include_bytes!("challenge.bin")
-        .iter()
-        .tuples()
-        .map(|(l, r)| [*l, *r])
-        .map(u16::from_le_bytes);
-    let mut vm = VM::new(binary);
+    let mut vm = VM::default();
+    vm.memory.iter_mut().set_from(
+        include_bytes!("challenge.bin")
+            .iter()
+            .tuples()
+            .map(|(l, r)| [*l, *r])
+            .map(u16::from_le_bytes),
+    );
     let mut side_effects = RealSideEffects::default();
     loop {
         let (instruction, size) = parse(&vm.memory, vm.pc);
