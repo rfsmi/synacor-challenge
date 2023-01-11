@@ -1,7 +1,7 @@
 mod instructions;
 mod side_effects;
 
-use instructions::{parse, Instruction};
+use instructions::parse;
 use itertools::Itertools;
 use side_effects::{DefaultSideEffects, SideEffects};
 
@@ -16,15 +16,9 @@ struct VM {
 }
 
 impl VM {
-    fn new(binary: &[u8]) -> Self {
+    fn new(binary: impl Iterator<Item = u16>) -> Self {
         let mut memory = [0; 32768];
-        memory.iter_mut().set_from(
-            binary
-                .iter()
-                .tuples()
-                .map(|(l, r)| [*l, *r])
-                .map(u16::from_le_bytes),
-        );
+        memory.iter_mut().set_from(binary);
         Self {
             pc: 0,
             registers: [0; 8],
@@ -34,14 +28,19 @@ impl VM {
     }
 
     fn step(&mut self, side_effects: &mut dyn SideEffects) {
-        let (instr, size) = parse(&self.memory, self.pc);
+        let (instruction, size) = parse(&self.memory, self.pc);
         self.pc += size;
-        instr.execute(self, side_effects);
+        instruction.execute(self, side_effects);
     }
 }
 
 fn main() {
-    let mut vm = VM::new(BINARY);
+    let binary = BINARY
+        .iter()
+        .tuples()
+        .map(|(l, r)| [*l, *r])
+        .map(u16::from_le_bytes);
+    let mut vm = VM::new(binary);
     let mut side_effects = DefaultSideEffects::default();
     loop {
         vm.step(&mut side_effects);
