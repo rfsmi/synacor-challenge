@@ -1,4 +1,5 @@
-use std::fmt::Debug;
+use std::fmt;
+use std::fmt::{Debug, Display};
 
 use crate::{SideEffects, VM};
 
@@ -11,18 +12,16 @@ macro_rules! make_parser {
     ] => {
         pub(crate) fn $fn_name(
             data: &[u16], address: u16,
-        ) -> (Box<dyn Instruction>, u16) {
+        ) -> Option<(Box<dyn Instruction>, u16)> {
             let operands = (
-                data.get(address as usize)
-                    .copied()
-                    .expect(&format!("Invalid address: {}", address)),
+                data.get(address as usize).copied()?,
                 data.get(address as usize + 1).copied(),
                 data.get(address as usize + 2).copied(),
                 data.get(address as usize + 3).copied(),
             );
             match operands {
                 $($arms)*
-                (opcode, _, _, _) => panic!("Opcode {} not implemented", opcode),
+                _ => None,
             }
         }
     };
@@ -35,14 +34,21 @@ macro_rules! make_parser {
         make_parser![$fn_name
             [$($rest)*]
             [] [] [] [] []
-            [$($arms)* ($code, $(Some($args),)* $($rem)*) => (
+            [$($arms)* ($code, $(Some($args),)* $($rem)*) => Some((
                 Box::new($op { $($args: $args.into(),)* }),
                 $size,
-            ),]
+            )),]
         ];
-        #[derive(Debug)]
-        struct $op {
-            $($args: Operand,)*
+        #[derive(Debug, Copy, Clone)]
+        pub(crate) struct $op {
+            $(pub(crate) $args: Operand,)*
+        }
+        impl Display for $op {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, stringify!($op))?;
+                $(write!(f, " {}", self.$args)?;)*
+                Ok(())
+            }
         }
     };
     // Starting a new instruction
@@ -80,7 +86,7 @@ macro_rules! make_parser {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Operand {
+pub(crate) enum Operand {
     Literal(u16),
     Reg(usize),
 }
@@ -111,6 +117,28 @@ impl From<u16> for Operand {
     }
 }
 
+impl Display for Operand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let format_value = |v: u16| -> String {
+            let literal = v.to_string();
+            let Some(c) = char::from_u32(v as u32) else {
+                return literal;
+            };
+            if c.is_ascii_graphic() || c == ' ' {
+                return format!("{literal} '{c}'");
+            }
+            if c == '\n' {
+                return format!("{literal} '\\n'");
+            }
+            return literal;
+        };
+        match self {
+            Operand::Literal(value) => write!(f, "[{}]", format_value(*value)),
+            Operand::Reg(reg) => write!(f, "reg{reg}"),
+        }
+    }
+}
+
 make_parser![parse,
     Halt: 0,
     Set: 1 a b,
@@ -136,7 +164,23 @@ make_parser![parse,
     Noop: 21,
 ];
 
-pub(crate) trait Instruction: Debug {
+pub(crate) trait InstructionClone {
+    fn clone_box(&self) -> Box<dyn Instruction>;
+}
+
+impl<T: 'static + Instruction + Clone> InstructionClone for T {
+    fn clone_box(&self) -> Box<dyn Instruction> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Instruction> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+
+pub(crate) trait Instruction: InstructionClone + Debug + Display {
     fn execute(&self, vm: &mut VM, side_effects: &mut dyn SideEffects);
 }
 
@@ -303,7 +347,7 @@ mod test {
 
     #[test]
     fn test_out() {
-        let (instr, size) = parse(&[19, 65], 0);
+        let (instr, size) = parse(&[19, 65], 0).unwrap();
         assert_eq!(size, 2);
         assert_eq!(format!("{instr:?}"), "Out { a: Literal(65) }");
 
