@@ -115,9 +115,11 @@ impl Maze {
             moves.push(format!("{instruction} # {description}"));
             state = parent;
         }
+        println!("start # {}", start.value);
         for instruction in moves.iter().rev() {
             println!("{instruction}");
         }
+        println!("end # {}", end.value);
     }
 
     fn new() -> Self {
