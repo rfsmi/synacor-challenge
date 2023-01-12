@@ -1,3 +1,4 @@
+use indicatif::{ProgressBar, ProgressStyle};
 use std::collections::HashMap;
 
 pub(crate) struct Teleporter {
@@ -7,12 +8,16 @@ pub(crate) struct Teleporter {
 
 impl Teleporter {
     pub(crate) fn run() {
-        for magic in 1..32768 {
-            if Teleporter::new(magic).check(4, 1) == 6 {
-                println!("Magic number is: {magic}");
-            }
-        }
         // Magic number is: 25734
+        println!("Trying all possible values: 0-32767");
+        let style = ProgressStyle::default_bar().progress_chars("##-");
+        let pb = ProgressBar::new(32768).with_style(style);
+        for magic in 0..32768 {
+            if Teleporter::new(magic).check(4, 1) == 6 {
+                pb.println(format!("Found magic number: {magic}"));
+            }
+            pb.inc(1);
+        }
     }
 
     fn new(magic: u16) -> Self {
