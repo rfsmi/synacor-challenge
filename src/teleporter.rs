@@ -1,5 +1,9 @@
 use indicatif::{ProgressBar, ProgressStyle};
-use std::collections::HashMap;
+use rayon::{
+    prelude::{IntoParallelIterator, ParallelIterator},
+    ThreadPoolBuilder,
+};
+use std::{collections::HashMap, sync::Mutex};
 
 pub(crate) struct Teleporter {
     memo: HashMap<(u16, u16), u16>,
@@ -9,15 +13,30 @@ pub(crate) struct Teleporter {
 impl Teleporter {
     pub(crate) fn run() {
         // Magic number is: 25734
+        ThreadPoolBuilder::default()
+            .stack_size(100_000_000)
+            .build_global()
+            .unwrap();
         println!("Trying all possible values: 0-32767");
-        let style = ProgressStyle::default_bar().progress_chars("##-");
-        let pb = ProgressBar::new(32768).with_style(style);
-        for magic in 0..32768 {
-            if Teleporter::new(magic).check(4, 1) == 6 {
-                pb.println(format!("Found magic number: {magic}"));
-            }
-            pb.inc(1);
-        }
+
+        let style = ProgressStyle::default_bar().progress_chars("#>-");
+        let pb = Mutex::new(ProgressBar::new(32768).with_style(style));
+
+        (0..32768)
+            .into_par_iter()
+            .filter_map(|magic| {
+                pb.lock().unwrap().inc(1);
+                if Teleporter::new(magic).check(4, 1) == 6 {
+                    Some(magic)
+                } else {
+                    None
+                }
+            })
+            .for_each(|num| {
+                pb.lock()
+                    .unwrap()
+                    .println(format!("Found magic number: {num}"))
+            });
     }
 
     fn new(magic: u16) -> Self {
