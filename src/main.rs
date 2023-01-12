@@ -1,5 +1,6 @@
 mod debugger;
 mod instructions;
+mod orb_maze;
 mod side_effects;
 mod teleporter;
 
@@ -7,15 +8,17 @@ use clap::Parser;
 use debugger::Debugger;
 use instructions::parse;
 use itertools::Itertools;
+use orb_maze::Maze;
 use side_effects::{FileBackedEffects, SideEffects};
 use teleporter::Teleporter;
 
 #[derive(clap::ValueEnum, Copy, Clone, Debug)]
 enum Command {
-    Debug,
     Run,
-    CalculateTeleporterNumber,
+    Debug,
     DumpBinary,
+    CalculateTeleporterNumber,
+    SolveMaze,
 }
 
 #[derive(Parser, Debug)]
@@ -86,5 +89,6 @@ fn main() {
         Command::Debug => debugger.debug(&mut vm, &mut side_effects),
         Command::DumpBinary => dump(&vm.memory),
         Command::CalculateTeleporterNumber => Teleporter::run(),
+        Command::SolveMaze => Maze::solve(),
     }
 }
