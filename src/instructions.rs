@@ -85,60 +85,6 @@ macro_rules! make_parser {
     };
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum Operand {
-    Literal(u16),
-    Reg(usize),
-}
-
-impl Operand {
-    fn value(self, vm: &VM) -> u16 {
-        match self {
-            Operand::Literal(value) => value,
-            Operand::Reg(reg) => vm.registers[reg],
-        }
-    }
-
-    fn write(self, vm: &mut VM, value: u16) {
-        match self {
-            Operand::Reg(reg) => vm.registers[reg] = value,
-            _ => panic!("Invalid write target: {self:?}"),
-        }
-    }
-}
-
-impl From<u16> for Operand {
-    fn from(value: u16) -> Self {
-        match value {
-            0..=32767 => Operand::Literal(value),
-            32768..=32775 => Operand::Reg(value as usize - 32768),
-            _ => panic!("Invalid number: {value}"),
-        }
-    }
-}
-
-impl Display for Operand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let format_value = |v: u16| -> String {
-            let literal = v.to_string();
-            let Some(c) = char::from_u32(v as u32) else {
-                return literal;
-            };
-            if c.is_ascii_graphic() || c == ' ' {
-                return format!("{literal} '{c}'");
-            }
-            if c == '\n' {
-                return format!("{literal} '\\n'");
-            }
-            return literal;
-        };
-        match self {
-            Operand::Literal(value) => write!(f, "[{}]", format_value(*value)),
-            Operand::Reg(reg) => write!(f, "reg{reg}"),
-        }
-    }
-}
-
 make_parser![parse,
     Halt: 0,
     Set: 1 a b,
@@ -163,22 +109,6 @@ make_parser![parse,
     In: 20 a,
     Noop: 21,
 ];
-
-pub(crate) trait InstructionClone {
-    fn clone_box(&self) -> Box<dyn Instruction>;
-}
-
-impl<T: 'static + Instruction + Clone> InstructionClone for T {
-    fn clone_box(&self) -> Box<dyn Instruction> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn Instruction> {
-    fn clone(&self) -> Self {
-        self.clone_box()
-    }
-}
 
 pub(crate) trait Instruction: InstructionClone + Debug + Display {
     fn execute(&self, vm: &mut VM, side_effects: &mut dyn SideEffects);
@@ -338,6 +268,76 @@ impl Instruction for In {
 
 impl Instruction for Noop {
     fn execute(&self, _vm: &mut VM, _side_effects: &mut dyn SideEffects) {}
+}
+
+pub(crate) trait InstructionClone {
+    fn clone_box(&self) -> Box<dyn Instruction>;
+}
+
+impl<T: 'static + Instruction + Clone> InstructionClone for T {
+    fn clone_box(&self) -> Box<dyn Instruction> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Instruction> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Operand {
+    Literal(u16),
+    Reg(usize),
+}
+
+impl Operand {
+    fn value(self, vm: &VM) -> u16 {
+        match self {
+            Operand::Literal(value) => value,
+            Operand::Reg(reg) => vm.registers[reg],
+        }
+    }
+
+    fn write(self, vm: &mut VM, value: u16) {
+        match self {
+            Operand::Reg(reg) => vm.registers[reg] = value,
+            _ => panic!("Invalid write target: {self:?}"),
+        }
+    }
+}
+
+impl From<u16> for Operand {
+    fn from(value: u16) -> Self {
+        match value {
+            0..=32767 => Operand::Literal(value),
+            32768..=32775 => Operand::Reg(value as usize - 32768),
+            _ => panic!("Invalid number: {value}"),
+        }
+    }
+}
+
+impl Display for Operand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let format_value = |v: u16| -> String {
+            let literal = v.to_string();
+            let Some(c) = char::from_u32(v as u32) else {
+                return literal;
+            };
+            if c.is_ascii_graphic() || c == ' ' {
+                return format!("{literal} '{c}'");
+            }
+            if c == '\n' {
+                return format!("{literal} '\\n'");
+            }
+            return literal;
+        };
+        match self {
+            Operand::Literal(value) => write!(f, "[{}]", format_value(*value)),
+            Operand::Reg(reg) => write!(f, "reg{reg}"),
+        }
+    }
 }
 
 #[cfg(test)]

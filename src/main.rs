@@ -82,7 +82,7 @@ fn main() {
             .map(|(l, r)| [*l, *r])
             .map(u16::from_le_bytes),
     );
-    let mut side_effects = FileBackedEffects::new("commands.txt");
+    let mut side_effects = FileBackedEffects::new("replay.txt");
     let mut debugger = Debugger::new();
     match Args::parse().command {
         Command::Run => debugger.run(&mut vm, &mut side_effects),
