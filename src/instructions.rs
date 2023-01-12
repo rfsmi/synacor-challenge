@@ -35,13 +35,18 @@ macro_rules! make_parser {
             [$($rest)*]
             [] [] [] [] []
             [$($arms)* ($code, $(Some($args),)* $($rem)*) => Some((
-                Box::new($op { $($args: $args.into(),)* }),
+                $op::new($($args.into(),)*),
                 $size,
             )),]
         ];
         #[derive(Debug, Copy, Clone)]
         pub(crate) struct $op {
             $(pub(crate) $args: Operand,)*
+        }
+        impl $op {
+            pub(crate) fn new($($args: Operand,)*) -> Box<dyn Instruction> {
+                Box::new($op { $($args: $args.into(),)* })
+            }
         }
         impl Display for $op {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

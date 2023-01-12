@@ -20,7 +20,7 @@ pub(crate) struct Debugger {
     single_step: bool,
     break_on_exhaust: bool,
     trace: bool,
-    patches: HashMap<u16, Box<dyn Instruction>>,
+    memory_patches: HashMap<u16, Box<dyn Instruction>>,
 }
 
 impl Debugger {
@@ -30,23 +30,11 @@ impl Debugger {
             single_step: false,
             break_on_exhaust: true,
             trace: false,
-            patches: [
-                (5451, Box::new(Noop {}) as Box<dyn Instruction>),
-                (
-                    5483,
-                    Box::new(Set {
-                        a: Reg(0),
-                        b: Literal(6),
-                    }) as Box<dyn Instruction>,
-                ),
-                (
-                    5486,
-                    Box::new(Set {
-                        a: Reg(7),
-                        b: Literal(25734),
-                    }) as Box<dyn Instruction>,
-                ),
-                (5489, Box::new(Noop {}) as Box<dyn Instruction>),
+            memory_patches: [
+                (5451, Noop::new()),
+                (5483, Set::new(Reg(0), Literal(6))),
+                (5486, Set::new(Reg(7), Literal(25734))),
+                (5489, Noop::new()),
             ]
             .into(),
         }
@@ -55,7 +43,7 @@ impl Debugger {
     fn instruction_at_pc(&self, vm: &VM) -> (Box<dyn Instruction>, u16) {
         let (instruction, size) =
             parse(&vm.memory, vm.pc).expect(&format!("Invalid PC: {}", vm.pc));
-        if let Some(instruction) = self.patches.get(&vm.pc) {
+        if let Some(instruction) = self.memory_patches.get(&vm.pc) {
             return (instruction.clone(), size);
         }
         (instruction, size)
@@ -91,12 +79,33 @@ impl Debugger {
         }
     }
 
-    fn set_command<'a, 'b>(
-        &'a mut self,
-        vm: &'a mut VM,
-        mut operands: impl Iterator<Item = &'b str>,
-    ) {
-        let Some((target, value)) = operands.next_tuple() else {
+    fn set_bp_command<'a, 'b>(&'a mut self, operands: impl Iterator<Item = &'b str>) {
+        let operands = operands.collect_vec();
+        if operands.is_empty() {
+            if self.breakpoints.is_empty() {
+                println!("No current breakpoints (add one with 'bp <address>')");
+            } else {
+                println!("Current breakpoints:");
+                for bp in self.breakpoints.iter().sorted() {
+                    println!("{bp}")
+                }
+            }
+        } else {
+            for operand in operands {
+                let Ok(addr) = operand.parse() else {
+                    println!("Expected integer, found: {operand}");
+                    return;
+                };
+                if !self.breakpoints.insert(addr) {
+                    // Breakpoint already present; toggle it off
+                    self.breakpoints.remove(&addr);
+                }
+            }
+        }
+    }
+
+    fn set_command<'a, 'b>(&'a mut self, vm: &'a mut VM, operands: impl Iterator<Item = &'b str>) {
+        let Some((target, value)) = operands.collect_tuple() else {
             println!("Expected format: target value");
             return;
         };
@@ -137,7 +146,7 @@ impl Debugger {
             handle.read_line(&mut line).expect("Failed to read line");
             line.trim().to_string()
         };
-        'command_loop: loop {
+        loop {
             let line = get_line();
             let mut operands = line.split(' ');
             let Some(command) = operands.next() else {
@@ -152,11 +161,7 @@ impl Debugger {
                     self.single_step = false;
                     break;
                 }
-                "trace" => {
-                    self.single_step = false;
-                    self.trace = true;
-                    break;
-                }
+                "bp" => self.set_bp_command(operands),
                 "regs" => {
                     println!("pc:   {}", vm.pc);
                     for reg in 0..8 {
@@ -164,16 +169,22 @@ impl Debugger {
                     }
                 }
                 "set" => self.set_command(vm, operands),
-                "bp" => {
-                    for operand in operands {
-                        let Ok(addr) = operand.parse() else {
-                            println!("Expected integer, found: {operand}");
-                            continue 'command_loop;
-                        };
-                        self.breakpoints.insert(addr);
-                    }
+                "trace" => {
+                    self.single_step = false;
+                    self.trace = true;
+                    break;
                 }
-                _ => println!("Unknown command"),
+                "help" => println!("Available commands:\n\
+                    s                    - step a single instruction\n\
+                    g                    - resume program execution\n\
+                    bp                   - list the current breakpoints\n\
+                    bp <address>...      - toggle a breakpoint at the given address (or addresses)\n\
+                    regs                 - list pc and register values\n\
+                    set <target> <value> - set the target register (or pc) to the given integer value\n\
+                    trace                - resume program execution and print all instructions\
+                "),
+                "" => (),
+                _ => println!("Unknown command (try 'help')"),
             }
         }
     }
