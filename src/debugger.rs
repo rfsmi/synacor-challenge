@@ -11,7 +11,7 @@ use crate::{
         Operand::{Literal, Reg},
         Set,
     },
-    side_effects::FileBackedEffects,
+    side_effects::{FileBackedEffects, SideEffects},
     VM,
 };
 
@@ -49,7 +49,7 @@ impl Debugger {
         (instruction, size)
     }
 
-    pub(crate) fn run(&mut self, vm: &mut VM, side_effects: &mut FileBackedEffects) {
+    pub(crate) fn run(&mut self, vm: &mut VM, side_effects: &mut dyn SideEffects) {
         loop {
             let (instruction, size) = self.instruction_at_pc(vm);
             vm.pc += size;

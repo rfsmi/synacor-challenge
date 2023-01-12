@@ -9,7 +9,7 @@ use debugger::Debugger;
 use instructions::parse;
 use itertools::Itertools;
 use orb_maze::Maze;
-use side_effects::{FileBackedEffects, SideEffects};
+use side_effects::{BasicSideEffects, FileBackedEffects, SideEffects};
 use teleporter::Teleporter;
 
 #[derive(clap::ValueEnum, Copy, Clone, Debug)]
@@ -82,11 +82,16 @@ fn main() {
             .map(|(l, r)| [*l, *r])
             .map(u16::from_le_bytes),
     );
-    let mut side_effects = FileBackedEffects::new("replay.txt");
     let mut debugger = Debugger::new();
     match Args::parse().command {
-        Command::Run => debugger.run(&mut vm, &mut side_effects),
-        Command::Debug => debugger.debug(&mut vm, &mut side_effects),
+        Command::Run => {
+            let mut side_effects = BasicSideEffects::default();
+            debugger.run(&mut vm, &mut side_effects);
+        }
+        Command::Debug => {
+            let mut side_effects = FileBackedEffects::new("replay.txt");
+            debugger.debug(&mut vm, &mut side_effects);
+        }
         Command::DumpBinary => dump(&vm.memory),
         Command::CalculateTeleporterNumber => Teleporter::run(),
         Command::SolveMaze => Maze::solve(),

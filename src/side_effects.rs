@@ -10,6 +10,33 @@ pub(crate) trait SideEffects {
     fn halt(&mut self);
 }
 
+#[derive(Default)]
+pub(crate) struct BasicSideEffects {}
+
+impl SideEffects for BasicSideEffects {
+    fn halt(&mut self) {
+        exit(0);
+    }
+
+    fn print(&mut self, value: u16) {
+        let Some(c) = char::from_u32(value as u32) else {
+            panic!("Value is not an ascii character: {value}");
+        };
+        print!("{c}");
+    }
+
+    fn read(&mut self) -> u16 {
+        let mut buf = [0; 1];
+        let reader = stdin();
+        let mut handle = reader.lock();
+        match handle.read(&mut buf) {
+            Ok(1) => (),
+            _ => panic!("Failed to read a character from stdin"),
+        }
+        return buf[0] as u16;
+    }
+}
+
 pub(crate) struct FileBackedEffects {
     file_path: String,
     pos: u64,
